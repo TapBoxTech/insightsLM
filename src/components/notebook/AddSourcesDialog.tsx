@@ -133,6 +133,13 @@ const AddSourcesDialog = ({
         }
 
         console.log('Text file sent to webhook successfully');
+
+        // Trigger notebook generation after webhook processing
+        await generateNotebookContentAsync({
+          notebookId,
+          sourceType: 'text'
+        });
+        console.log('Notebook generation triggered for text file');
         return;
       }
 
