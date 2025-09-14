@@ -74,14 +74,14 @@ const AddSourcesDialog = ({
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const files = Array.from(e.dataTransfer.files);
+      const files = Array.from(e.dataTransfer.files) as File[];
       handleFileUpload(files);
     }
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files) as File[];
       handleFileUpload(files);
     }
   }, []);
@@ -99,6 +99,44 @@ const AddSourcesDialog = ({
         }
       });
 
+      // Handle text files differently - read content locally instead of uploading
+      if (fileType === 'text') {
+        console.log('Processing text file locally:', file.name);
+
+        // Read the text file content
+        const content = await file.text();
+        console.log('Text file content read, length:', content.length);
+
+        // Update status to processing
+        updateSource({
+          sourceId,
+          updates: {
+            processing_status: 'processing',
+            content: content // Store content in database
+          }
+        });
+
+        // Send directly to webhook like "Paste Text" does
+        const { data, error } = await supabase.functions.invoke('process-additional-sources', {
+          body: {
+            type: 'copied-text',
+            notebookId,
+            title: file.name,
+            content,
+            sourceIds: [sourceId],
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Text file sent to webhook successfully');
+        return;
+      }
+
+      // For PDF and audio files, continue with existing upload flow
       // Upload the file
       const filePath = await uploadFile(file, notebookId, sourceId);
       if (!filePath) {
